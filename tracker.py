@@ -17,23 +17,26 @@ def clear():
         _ = os.system('clear')
 
 
-def favourite(): #This is used whena  user wants to select a location from favourites
+def favourite(): #This is used when a user wants to select a location from favourites
+    global collected_from_ip
+    collected_from_ip = False
     while True:
         try:
-            print("Which of these locations do you wish to make use of?")
+            print("Which of these locations do you wish to make use of? ")
             for i in favourites_list:
                 print(f"{int(favourites_list.index(i)) + 1}: {i["region"]}, {i["country"]}")
-            number = int(input("\nSelect a number from the list"))
+            number = int(input("Select a number from the list "))
             global data
             data = favourites_list[(number - 1)] #List indexing
             break
         except ValueError:
-            print("You have entered a value that is not on the list! Choose Again!")
+            print("Please Select a Number! Choose Again\n")
             continue
         except TypeError:
-            print("Please select a number! Choose Again!")
+            print("Please select a number! Choose Again!\n")
             continue
-
+        except IndexError:
+            print("You have entered a value that is not on the list! Choose Again!\n")
 
 def add_favourite():
     while True:
@@ -154,7 +157,7 @@ if favourites_list:
             from_ip()
             break
         elif fav.strip().lower() == "2":
-            print("Choose from favourites")
+            print("\nChoosing from favourites")
             favourite()
             break
         else:
@@ -177,7 +180,7 @@ print("Longitude:", long)
 
 if (collected_from_ip == True) and (data not in favourites_list):
     print("Looks like this location is not in your favourites list")
-    try:
+    try:    
         while True:
             add_favourite()
             break
@@ -186,8 +189,11 @@ if (collected_from_ip == True) and (data not in favourites_list):
 
 
 
-with open("selected_tle.txt") as file:
+with open("selected_tle") as file:
     lines = file.readlines()
     name, line1, line2 = lines[0], lines[1], lines[2]
-
+print("Predicting Passes...")
+time.sleep(2)
 predict_passes(line1, line2, lat, long)
+
+#Add an option of do you want to run the app again.

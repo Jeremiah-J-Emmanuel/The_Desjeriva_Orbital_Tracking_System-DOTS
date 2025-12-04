@@ -53,9 +53,7 @@ from sgp4.api import Satrec, jday
 
 # ----------------------------
 # Constants (WGS84 Earth model)
-# ----------------------------
-# Semi-major axis (equatorial radius of the Earth) in meters
-WGS84_A = 6378137.0
+WGS84_A = 6378137.0  # This is the radius of the earth around the equator (The Semi Majot Axis)
 
 # Flattening
 WGS84_F = 1.0 / 298.257223563
@@ -101,9 +99,9 @@ def r2d(rad: float) -> float: #radians to degrees
     return rad * 180.0 / math.pi
 
 
-# -------------------------------------------------------
+
 # Step 1: Greenwich Mean Sidereal Time (GMST) / θ_g
-# -------------------------------------------------------
+
 def gmst_angle(dt_utc: datetime) -> float:
     """
     Compute the GMST angle (radians) for a given UTC datetime.
@@ -132,9 +130,9 @@ def gmst_angle(dt_utc: datetime) -> float:
     return d2r(gmst_deg)
 
 
-# -------------------------------------------------------
+
 # Step 2: Observer geodetic -> ECEF (Earth-fixed XYZ)
-# -------------------------------------------------------
+
 def geodetic_to_ecef(lat_deg: float, lon_deg: float, alt_m: float = 0.0) -> Tuple[float, float, float]:
     """
     Convert geodetic (lat, lon in degrees, altitude meters) -> ECEF XYZ in meters.
@@ -160,9 +158,9 @@ def geodetic_to_ecef(lat_deg: float, lon_deg: float, alt_m: float = 0.0) -> Tupl
     return x, y, z
 
 
-# -------------------------------------------------------
+
 # Step 3: ECI -> ECEF rotation by GMST about Z axis
-# -------------------------------------------------------
+
 def eci_to_ecef(r_eci_m: Tuple[float, float, float], gmst_rad: float) -> Tuple[float, float, float]:
     """
     Rotate a vector from ECI to ECEF via Z-rotation by GMST angle:
@@ -179,10 +177,10 @@ def eci_to_ecef(r_eci_m: Tuple[float, float, float], gmst_rad: float) -> Tuple[f
     return x_e, y_e, z_e
 
 
-# -------------------------------------------------------
+
 # Step 4: ECEF -> ENU (local East, North, Up)
-# -------------------------------------------------------
-def ecef_to_enu(r_ecef_m: Tuple[float, float, float],
+
+def ecef_to_enu(r_ecef_m: Tuple[float, float, float], 
                 obs_ecef_m: Tuple[float, float, float],
                 lat_deg: float, lon_deg: float) -> Tuple[float, float, float]:
     """
@@ -234,9 +232,8 @@ def enu_to_az_el_range(e: float, n: float, u: float) -> Tuple[float, float, floa
     return az, el, rng
 
 
-# -------------------------------------------------------
 # The main function your script calls
-# -------------------------------------------------------
+
 def predict_passes(line1: str,
                    line2: str,
                    lat_deg: float | str,
@@ -244,8 +241,8 @@ def predict_passes(line1: str,
                    *,
                    alt_m: float = 0.0,
                    start_utc: Optional[datetime] = None,
-                   duration_hours: float = 2.0,
-                   step_seconds: int = 10
+                   duration_hours: float = 24.0,
+                   step_seconds: int = 30
                    ) -> List[PassEvent]:
     """
     Predict visibility passes for a given satellite and observer.
@@ -271,6 +268,8 @@ def predict_passes(line1: str,
     List[PassEvent]
         A list of pass windows (rise, max, set) for the specified horizon (0° elevation).
     """
+
+
     # 1) Basic sanitation/conversions
     if isinstance(lat_deg, str):
         lat_deg = float(lat_deg.strip())
@@ -292,6 +291,120 @@ def predict_passes(line1: str,
     Meaning: 270°E is the same as 90°W.
     So after this, lon_deg is guaranteed to be within the range [-180°, +180°]
     """
+
+    while True:
+        default = input("Do you want to change the default time window of 24 hours. [Y/N] ").strip().lower()
+        if default == "y":
+            print("\nChanging time window...")
+            print("The default setting of a 24 hours time window and a 30 seconds step interval is recommended")
+            print("NOTE: A Large time window and a very small step second intervals will lead to larger number of readings.")
+            print("Also, a smaller time window and a large step interval may lead to very little to no readings.")
+            print("You may miss rise, set, or max elevation with a small window and large step second")
+            print("\n___Select Time window___")
+            print("1. 3 hours")
+            print("2. 6 hours")
+            print("3. 12 hours")
+            print("4. 24 hours")
+            print("5. Custom")
+            time_window = input("Choose from 1 - 6: ")
+            if time_window == "1":
+                print("3 hours time window selected")
+                duration_hours = 3.0
+                break
+            elif time_window == "2":
+                print("6 hours time window selected")
+                duration_hours = 6.0
+                break
+            elif time_window == "3":
+                print("12 hours time window selected")
+                duration_hours = 12.0 
+                break
+            elif time_window == "4":
+                print("24 hours time window selected")
+                duration_hours = 48.0
+                break
+            elif time_window == "5":
+                while True:
+                    custom = input("Enter custom time window in hours (e.g., 5.5 for 5 hours 30 minutes): ").strip()
+                    try:
+                        duration_hours = float(custom)
+                        if duration_hours <= 0:
+                            print("Please enter a positive number for hours.")
+                            continue
+                        print(f"Custom time window of {duration_hours} hours selected.")
+                        break
+                    except ValueError:
+                        print("Invalid input. Please enter a numeric value for hours.")
+                        continue
+                break
+            else:
+                print("Please choose a valid option from 1 - 5")
+                continue
+        elif default == "n":
+            print("No change in default time of 24 hours")
+            break
+        else:
+            print("Please choose Y or N! ")
+            continue
+
+
+    while True:
+        step = input("\nDo you want to change the default step interval of 30 seconds? [Y/N] ").strip().lower()
+        if step == "y":
+            print("\nChanging step interval...")
+            print("The default setting of 30 seconds step interval is recommended")
+            print("NOTE: A very small step second intervals will lead to larger number of readings.")
+            print("Also, a large step interval may lead to very little to no readings.")
+            print("You may miss rise, set, or max elevation with a large step second")
+            print("\n___Select Step Interval___")
+            print("1. 10 seconds")
+            print("2. 20 seconds")
+            print("3. 45 seconds")
+            print("4. 60 seconds")
+            print("5. Custom")
+            step_interval = input("Choose from 1 - 5: ")
+            if step_interval == "1":
+                print("10 seconds step interval selected")
+                step_seconds = 10
+                break
+            elif step_interval == "2":
+                print("20 seconds step interval selected")
+                step_seconds = 20
+                break
+            elif step_interval == "3":
+                print("45 seconds step interval selected")
+                step_seconds = 45
+                break
+            elif step_interval == "4":
+                print("60 seconds step interval selected")
+                step_seconds = 60
+                break
+            elif step_interval == "5":
+                while True:
+                    custom_step = input("Enter custom step interval in seconds (e.g., 15): ").strip()
+                    try:
+                        step_seconds = int(custom_step)
+                        if step_seconds <= 0:
+                            print("Please enter a positive integer for seconds.")
+                            continue
+                        print(f"Custom step interval of {step_seconds} seconds selected.")
+                        break
+                    except ValueError:
+                        print("Invalid input. Please enter an integer value for seconds.")
+                        continue
+                break
+            else:
+                print("Please choose a valid option from 1 - 5")
+                continue
+        elif step == "n":
+             print("No change in default step interval of 30 secs")
+             break
+            
+        else:
+            print("Select a valid option")
+            continue
+
+
 
     # Use current UTC time if not specified
     if start_utc is None:
@@ -398,11 +511,13 @@ def predict_passes(line1: str,
             set_azimuth_deg=prev_az if prev_az is not None else 0.0
         ))
 
-    # Print a friendly summary (useful for your terminal output)
+    # Print a friendly summary if there is no view in the user's selected window
     if not passes:
         print("No visible passes in the specified window.")
     else:
         print("\nPredicted passes (UTC):")
+        print("------------------------------------------------------------")
+        print("Pass |   Day    | Time | Para.| Angle |")
         print("------------------------------------------------------------")
         for p in passes:
             print(f"Rise: {p.rise_time_utc.strftime('%Y-%m-%d %H:%M:%S')}  "
@@ -426,24 +541,24 @@ if __name__ == "__main__":
     default_lat = -1.95
     default_lon = 30.06
 
-    tle_path = "selected_tle"
+    tle_path = "selected_tle.txt"
     if not os.path.exists(tle_path):
-        print("Could not find 'selected_tle'. Please run your fetch script first.")
+        print("Could not find 'selected_tle.txt'. Please run your fetch script first.")
         raise SystemExit(1)
 
     with open(tle_path, "r", encoding="utf-8") as f:
         lines = [ln.strip() for ln in f.readlines() if ln.strip()]
 
     if len(lines) < 3:
-        print("selected_tle does not have 3 lines (name + 2 TLE lines).")
+        print("The Selected Satellite has issues with thier essential files.\nTry again).")
         raise SystemExit(1)
 
     sat_name = lines[0]
     l1, l2 = lines[1], lines[2]
-    print(f"Predicting passes for: {sat_name}")
+    print(f"Predicting passes for {sat_name}")
 
     predict_passes(l1, l2, default_lat, default_lon,
-                   duration_hours=2.0,
+                   duration_hours=24.0,
                    step_seconds=10)
 
 
